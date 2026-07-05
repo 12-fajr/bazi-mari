@@ -1,0 +1,194 @@
+import tkinter as tk
+import random   
+from collections import deque
+
+class SnakeGame:
+    def __init__(self):
+        self.window = tk.Tk()
+        self.window.title("بازی ماری")
+        self.window.resizable(False, False)
+        
+        # تنظیمات بازی
+        self.cell_size = 20
+        self.grid_width = 30
+        self.grid_height = 20
+        self.speed = 150  # میلی‌ثانیه
+        
+        # اندازه پنجره
+        self.width = self.grid_width * self.cell_size
+        self.height = self.grid_height * self.cell_size
+        
+        # ایجاد بوم
+        self.canvas = tk.Canvas(
+            self.window,
+            width=self.width,
+            height=self.height,
+            bg="black"
+        )
+        self.canvas.pack()
+        
+        # اطلاعات بازی
+        self.score = 0
+        self.score_label = tk.Label(
+            self.window,
+            text=f"امتیاز: {self.score}",
+            font=("Arial", 14),
+            fg="black",
+            bg="black"
+        )
+        self.score_label.pack()
+        
+        # جهت اولیه
+        self.direction = "Right"
+        self.next_direction = "Right"
+        
+        # موقعیت اولیه مار
+        start_x = self.grid_width // 2
+        start_y = self.grid_height // 2
+        self.snake = deque([
+            (start_x, start_y),
+            (start_x-1, start_y),
+            (start_x-2, start_y)
+        ])
+        
+        # ایجاد غذا
+        self.food = None
+        self.create_food()
+        
+        # کنترل‌ها
+        self.window.bind("<KeyPress>", self.change_direction)
+        
+        # شروع بازی
+        self.game_over = False
+        self.game_loop()
+        
+        self.window.mainloop()
+    
+    def create_food(self):
+        while True:
+            x = random.randint(0, self.grid_width - 1)
+            y = random.randint(0, self.grid_height - 1)
+            
+            if (x, y) not in self.snake:
+                self.food = (x, y)
+                break
+    
+    def change_direction(self, event):
+        key = event.keysym
+        
+        # جلوگیری از حرکت معکوس
+        if key == "Up" and self.direction != "Down":
+            self.next_direction = "Up"
+        elif key == "Down" and self.direction != "Up":
+            self.next_direction = "Down"
+        elif key == "Left" and self.direction != "Right":
+            self.next_direction = "Left"
+        elif key == "Right" and self.direction != "Left":
+            self.next_direction = "Right"
+    
+    def move_snake(self):
+        self.direction = self.next_direction
+        
+        # سر جدید
+        head_x, head_y = self.snake[0]
+        
+        if self.direction == "Up":
+            head_y -= 1
+        elif self.direction == "Down":
+            head_y += 1
+        elif self.direction == "Left":
+            head_x -= 1
+        elif self.direction == "Right":
+            head_x += 1
+        
+        # بررسی برخورد با دیوار
+        if (head_x < 0 or head_x >= self.grid_width or
+            head_y < 0 or head_y >= self.grid_height):
+            self.game_over = True
+            return
+        
+        # بررسی برخورد با خود
+        if (head_x, head_y) in self.snake:
+            self.game_over = True
+            return
+        
+        # اضافه کردن سر جدید
+        self.snake.appendleft((head_x, head_y))
+        
+        # بررسی خوردن غذا
+        if (head_x, head_y) == self.food:
+            self.score += 10
+            self.score_label.config(text=f"امتیاز: {self.score}")
+            self.create_food()
+            
+            # افزایش سرعت با افزایش امتیاز
+            if self.score % 50 == 0:
+                self.speed = max(50, self.speed - 10)
+        else:
+            # حذف دم اگر غذا نخورده
+            self.snake.pop()
+    
+    def draw(self):
+        # پاک کردن صفحه
+        self.canvas.delete("all")
+        
+        # رسم مار
+        for i, (x, y) in enumerate(self.snake):
+            color = "#00FF00" if i == 0 else "#008800"  # سر سبز روشن، بدن سبز تیره
+            self.draw_cell(x, y, color)
+        
+        # رسم غذا
+        if self.food:
+            fx, fy = self.food
+            self.draw_cell(fx, fy, "red")
+        
+        # رسم شبکه
+        for i in range(self.grid_width):
+            self.canvas.create_line(
+                i * self.cell_size, 0,
+                i * self.cell_size, self.height,
+                fill="#333333"
+            )
+        
+        for i in range(self.grid_height):
+            self.canvas.create_line(
+                0, i * self.cell_size,
+                self.width, i * self.cell_size,
+                fill="#333333"
+            )
+        
+        # نمایش پایان بازی
+        if self.game_over:
+            self.canvas.create_text(
+                self.width // 2,
+                self.height // 2,
+                text="بازی تمام شد!",
+                fill="white",
+                font=("Arial", 24, "bold")
+            )
+            self.canvas.create_text(
+                self.width // 2,
+                self.height // 2 + 30,
+                text=f"امتیاز نهایی: {self.score}",
+                fill="yellow",
+                font=("Arial", 16)
+            )
+    
+    def draw_cell(self, x, y, color):
+        self.canvas.create_rectangle(
+            x * self.cell_size,
+            y * self.cell_size,
+            (x + 1) * self.cell_size,
+            (y + 1) * self.cell_size,
+            fill=color,
+            outline=""
+        )
+    
+    def game_loop(self):
+        if not self.game_over:
+            self.move_snake()
+            self.draw()
+            self.window.after(self.speed, self.game_loop)
+
+if __name__ == "__main__":
+    SnakeGame()
